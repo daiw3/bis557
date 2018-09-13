@@ -3,9 +3,11 @@ title: "The Linear Model"
 author: "Michael J. Kane"
 date: "`r Sys.Date()`"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     self_contained: yes
-    toc: true
+    toc: yes
 ---
 <!--
 %\VignetteEngine{knitr::rmarkdown}
