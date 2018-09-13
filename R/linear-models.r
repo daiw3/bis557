@@ -18,7 +18,7 @@ linear_model <- function(formula, data) {
   
   X_QR <- qr(X)
   beta <- solve.qr(X_QR, y)
-  beta[which((beta - 0) < 1e-8)] = NA
+  beta[which(beta == 0)] = NA
   
   my_coef = list(coefficients = beta)
   class(my_coef) = 'lm'
