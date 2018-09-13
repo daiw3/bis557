@@ -37,7 +37,7 @@ linear_model2 <- function(formula, data) {
   beta = V %*% D_inverse %*% t(U) %*% y
   beta[which((beta - 0) < 1e-8)] = NA
   
-  my_coef = list(coefficients = beta)
+  my_coef = list(coefficients = beta, call = NA, rank = NA)
   class(my_coef) = 'lm'
   return(my_coef)
 }
