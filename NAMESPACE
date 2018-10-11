@@ -2,3 +2,4 @@
 
 export(linear_model)
 export(ridge_reg)
+import(stats)

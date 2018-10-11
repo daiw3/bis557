@@ -2,6 +2,7 @@
 #'
 #' @description This function fits the ridge regression model.
 #' @param form a formula
+#' @import stats
 #' @param lambda a number
 #' @param d a data.frame
 #' @return An list of rigde regression information
