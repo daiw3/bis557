@@ -7,11 +7,11 @@
 ridge_reg(form, lambda, d)
 }
 \arguments{
+\item{form}{a formula}
+
 \item{lambda}{a number}
 
-\item{formula}{a formula}
-
-\item{data}{a data.frame}
+\item{d}{a data.frame}
 }
 \value{
 An list of rigde regression information

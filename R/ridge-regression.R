@@ -1,9 +1,9 @@
 #' Fit a ridge regression model
 #'
 #' @description This function fits the ridge regression model.
-#' @param formula a formula
+#' @param form a formula
 #' @param lambda a number
-#' @param data a data.frame
+#' @param d a data.frame
 #' @return An list of rigde regression information
 #' @examples
 #' ridge_fit <- ridge_reg(Sepal.Length ~. , lambda = 1.2, iris)
