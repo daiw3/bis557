@@ -19,6 +19,7 @@ To find the $\lambda$ that minimizes the mean squared error on test dataset, we 
 
 
 ```{r}
+installed.packages('foreach')
 library(bis557)
 library(foreach)
 data(ridge_train)
