@@ -1,0 +1,406 @@
+---
+title: "Homework-3"
+author: "Wei Dai"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Homework 3 for BIS557}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+
+## 1. Kernel Density Estimate
+Kernel Functions
+```{r}
+# Inputs: x, a numeric vector; h a numeric value
+#         giving the bandwidth
+# Output: value of the Epanechnikov kernel
+kernel_epan <- function(x, h = 1) {
+  x <- x / h
+  ran <- as.numeric(abs(x) <= 1)
+  val <- ((3/4) * ( 1 - x^2 ) * ran) / h
+  return(val)
+}
+
+# Inputs: x training vector;
+#         x_new numeric vector for calculating the kernel density estimate
+#         h numeric giving the bandwidth
+# Output: the Epanechnikov kernel density estimate for x_new
+kernel_density <- function(x, x_new, h) {
+    w <- kernel_epan(abs(x_new - x), h = h)
+    f_new <- mean(w)
+    return(f_new)
+}
+```
+
+Visually test how this performs for some hand constructed datasets and bandwidths
+
+#### 1.1 For data points, x_new from different distributions
+First, I plotted the true density curve from different distributions  and the estimated density curve with the Epanechnikov kernel.
+
+Then, I also reported the squared difference between the true density and estimated density.
+
+
+##### 1.1.1 Chi-squared distribution with df = 5
+
+```{r}
+# Visually test how this performs for some hand constructed datasets and bandwidths
+N <- 1000
+set.seed(1995)
+x <- rchisq(N, df = 5)
+bwidths <- 1.5
+mse <- rep(NA_real_, N)
+x_new = seq(0, 5, length.out = N)
+y_new = dchisq(x_new, df = 5)
+f_new = c()
+
+## Evaluate the kernel estimate at different data points with the same bandwith h = 1.5
+for (k in 1:N) {
+  f_new[k] <- kernel_density(x, x_new[k], bwidths)
+  mse[k] <- (f_new[k] - y_new[k])^2
+}
+
+## Plot the True density curve and Estimated density curve
+plot(x_new, f_new, type = 'l', main = 'Chi: True density and Estimate density Plot',
+     xlab = 'x', ylab = 'density')
+lines(x_new, y_new, lty = 2, col = 2)
+legend("bottomright", c("Estimate density", "True density"), col = 1:2, lty = 1:2, cex = 0.8)
+## Plot the Squared Error between estimate density and true density
+plot(x_new, mse, 
+     ylab = "Squared Error", 
+     xlab = "x")
+title(main = 
+        list('Chi-squared: Squared Error at different data points', 
+             cex = 0.8))
+
+```
+
+
+##### 1.1.2 Normal distribution with mean = 4, sd = 2
+```{r}
+# Visually test how this performs for some hand constructed datasets and bandwidths
+N <- 1000
+set.seed(1995)
+x <- rnorm(N, 4, 2)
+bwidths <- 1.5
+mse <- rep(NA_real_, N)
+x_new = seq(-1, 9, length.out = N)
+y_new = dnorm(x_new, 4, 2)
+f_new = c()
+
+## Evaluate the kernel estimate at different data points with the same bandwith h = 1.5
+for (k in 1:N) {
+  f_new[k] <- kernel_density(x, x_new[k], bwidths)
+  mse[k] <- (f_new[k] - y_new[k])^2
+}
+
+## Plot the True density curve and Estimated density curve
+plot(x_new, f_new, type = 'l', main = 'Normal: True density and Estimatd density Plot',
+     xlab = 'x', ylab = 'density')
+lines(x_new, y_new, lty = 2, col = 2)
+legend("bottomright", c("Estimate density", "True density"), col = 1:2, lty = 1:2, cex = 0.8)
+## Plot the Squared Error between estimate density and true density
+plot(x_new, mse, 
+     ylab = "Squared Error", 
+     xlab = "x")
+title(main = 
+        list('Normal: Squared Error at different data points', 
+             cex = 0.8))
+
+```
+
+##### 1.1.3 t distribution with df = 10
+```{r}
+# Visually test how this performs for some hand constructed datasets and bandwidths
+N <- 1000
+set.seed(1995)
+x <- rt(N, 10)
+bwidths <- 1
+mse <- rep(NA_real_, N)
+x_new = seq(-5, 5, length.out = N)
+y_new = dt(x_new, 10)
+f_new = c()
+
+## Evaluate the kernel estimate at different data points with the same bandwith h = 1.0
+for (k in 1:N) {
+  f_new[k] <- kernel_density(x, x_new[k], bwidths)
+  mse[k] <- (f_new[k] - y_new[k])^2
+}
+
+## Plot the True density curve and Estimated density curve
+plot(x_new, f_new, type = 'l', main = 't-dist: True density and Estimatd density Plot',
+     xlab = 'x', ylab = 'density', ylim = c(0, 0.4))
+lines(x_new, y_new, lty = 2, col = 2)
+legend("topright", c("Estimate density", "True density"), col = 1:2, lty = 1:2, cex = 0.8)
+## Plot the Squared Error between estimate density and true density
+plot(x_new, mse, 
+     ylab = "Squared Error", 
+     xlab = "x")
+title(main = 
+        list('t-dist:Squared Error at different data points', 
+             cex = 0.8))
+```
+
+
+
+
+#### 1.2 For different bandwidths
+
+In this homework, I chose chi-squared distribution with degree of freedom equal to 5 as example. I plotted the the squared difference between the true density and estimated density with diffrent bandwidths and selected the value of bandwidth that minimizes the difference. I reported the true density and estimated density under the "best" bandwidth.
+
+From the plots, when bandwidth is narrow, the estimate is very close but the curve is not smooth. When the bandwidth is wide, the curve is smooth but bias is very large.
+
+```{r}
+## Evaluate the kernel estimate on different bandwidths
+N <- 1000
+set.seed(1995)
+x <- rchisq(N, df = 5)
+bwidths <- seq(0.1, 5, length.out = N)
+mse <- rep(NA_real_, N)
+x_new = rchisq(1, df = 5)
+y_new = dchisq(x_new, df = 5)
+f_new = c()
+for (k in 1:N) {
+  f_new[k] <- kernel_density(x, x_new, bwidths[k])
+  mse[k] <- (f_new[k] - y_new)^2
+}
+plot(bwidths, mse, 
+     ylab = "Squared Error", 
+     xlab = "Bandwidths")
+title(main = 
+        list('Squared Error between with bandwiths', 
+             cex = 0.8))
+best_h <- bwidths[which.min(mse)]
+f_best <- kernel_density(x, x_new, best_h)
+paste0("The best bandwidth is ", round(best_h, 2), ", the estimate density is ", round(f_best, 4),
+       " and the true density is ",round(y_new, 4))
+
+x_new = seq(0, 5, length.out = N)
+y_new = dchisq(x_new, df = 5)
+## Evaluate the kernel estimate at different bandwith h = 0.1
+for (k in 1:N) {
+  f_new[k] <- kernel_density(x, x_new[k], bwidths[1])
+}
+
+## Plot the True density curve and Estimated density curve
+plot(x_new, f_new, type = 'l', main = 'h = 0.1: True density and Estimatd density Plot',
+     xlab = 'x', ylab = 'density', ylim = c(0, 0.4))
+lines(x_new, y_new, lty = 2, col = 2)
+legend("topright", c("Estimate density", "True density"), col = 1:2, lty = 1:2, cex = 0.8)
+
+
+
+## Evaluate the kernel estimate at different bandwith h = 0.1
+for (k in 1:N) {
+  f_new[k] <- kernel_density(x, x_new[k], 1)
+}
+
+## Plot the True density curve and Estimated density curve
+plot(x_new, f_new, type = 'l', main = 'h = 1: True density and Estimatd density Plot',
+     xlab = 'x', ylab = 'density', ylim = c(0, 0.4))
+lines(x_new, y_new, lty = 2, col = 2)
+legend("topright", c("Estimate density", "True density"), col = 1:2, lty = 1:2, cex = 0.8)
+
+
+
+## Evaluate the kernel estimate at different bandwith h = 5
+for (k in 1:N) {
+  f_new[k] <- kernel_density(x, x_new[k], 5)
+}
+
+## Plot the True density curve and Estimated density curve
+plot(x_new, f_new, type = 'l', main = 'h = 5: True density and Estimatd density Plot',
+     xlab = 'x', ylab = 'density', ylim = c(0, 0.4))
+lines(x_new, y_new, lty = 2, col = 2)
+legend("topright", c("Estimate density", "True density"), col = 1:2, lty = 1:2, cex = 0.8)
+
+```
+
+
+## 2. Show that if f and g are both convex functions, then their sum must also be convex.
+
+
+\textit{Proof}
+
+
+If $f$ and $g$ are convex, then
+$$
+\begin{aligned}
+&\forall x_1,x_2 \in X, \forall t \in [0,1],\\
+& f(tx_1+(1-t)x_2) < t f(x_1) +(1-t)f(x_2),\\
+& g(tx_1+(1-t)x_2) < t g(x_1) +(1-t)g(x_2)
+\end{aligned}
+$$
+Therefore, for the sum of function $f$ and $g$, $f+g$, we have
+$$
+\begin{aligned}
+& (f+g)(tx_1+(1-t)x_2)\\
+& =f(tx_1+(1-t)x_2)+g(tx_1+(1-t)x_2)\\
+& < t f(x_1) +(1-t)f(x_2) + t g(x_1) +(1-t)g(x_2)\\
+& = t (f(x_1)+g(x_1))+(1-t)(f(x_2)+g(x_2))\\
+& = t (f+g)(x_1)+(1-t)(f+g)(x_2)
+\end{aligned}
+$$
+
+According to the definition of convex function, $f+g$ is also a convex function.
+
+## 3. Illustrate that the absolute value function is convex. Show that the $l_1$-norm is also convex.
+
+
+\textit{Proof}
+
+
+If $f$ is a convex function, then $f$ satisfies the following equation
+$$
+\begin{aligned}
+&\forall x_1,x_2 \in X, \forall t \in [0,1],\\
+& f(tx_1+(1-t)x_2) < t f(x_1) +(1-t)f(x_2),\\
+\end{aligned}
+$$
+For the absolute value of $f$, we have
+$$
+\begin{aligned}
+& |f(tx_1+(1-t)x_2)|\\
+& < |t f(x_1) +(1-t)f(x_2)|\\
+& \leq |t f(x_1)|+|(1-t)f(x_2)|\\
+& = t|f(x_1)|+(1-t)|f(x_2)|
+\end{aligned}
+$$
+Therefore, the absolute value function is convex.
+As $l_1$-norm of a function equals to $\sum_i |f_i|$, if each of $|f_i|$ is a convex function, then the sum of convex functions is also a convex function. We know that $f_i$ is convex, and based on the result above, $|f_i|$ is convex, so $l_1$-norm is also convex.
+
+
+## 4. Prove that the elastic net objective function is convex using the results from the previous two exercises.
+
+
+\textit{Proof}
+
+
+The elastic net objective function is 
+$$
+f(\beta; \lambda, \alpha)=\frac{1}{2n}||y-X\beta||_2^2 + \lambda [(1-\alpha)\frac{1}{2}||\beta||_2^2+\alpha ||\beta||_1]
+$$
+We just need prove that $f(x)=x^2$ is a convex function.
+
+$$
+\begin{aligned}
+& (tx_1+(1-t)x_2)^2\\
+& =t^2x_1^2+2t(1-t)x_1 x_2 +(1-t)^2 x_2^2\\
+& = t^2x_1^2+2t(1-t)x_1 x_2 +(1-t)^2 x_2^2-tx_1^2-(1-t)x_2^2+(tx_1^2+(1-t)x_2^2)\\
+& = -[(t-t^2)x_1^2+t(1-t)x_2^2-2t(1-t)x_1x_2]+(tx_1^2+(1-t)x_2^2)\\
+& = -[t(1-t)(x_1-x_2)^2]+(tx_1^2+(1-t)x_2^2)\\
+& \leq tx_1^2+(1-t)x_2^2
+\end{aligned}
+$$
+Therefore, quadratic function is a convex function. As $l_2$-norm is the summation of quadratic functions, $l_2$-norm is also convex. So, $\frac{1}{2n}||y-X\beta||_2^2$ and $||\beta||_2^2$ are convex. Based on the results above, we know that $l_1$-norm of $\beta$ is also convex, so $||\beta||_1$ is convex. The summation of convex functions is also convex. Therefore, the objective funcion $f(\beta; \lambda, \alpha)$ is convex.
+
+## 5. Find the KKT conditions for glmnet and Implement lasso regression.
+
+#### 5.1 KKT conditions for glmnet:
+
+First, the optimization problem is
+$$
+\hat{\beta} = arg\min_{\beta}\frac{1}{2}||y-X\beta||_2^2 \\
+subject\ to \ (1-\alpha)\frac{1}{2}||\beta||_2^2 + \alpha ||\beta||_1 \leq s
+$$
+Lagrangian form of this function is
+$$
+\hat{\beta} = arg\min_{\beta}\frac{1}{2}||y-X\beta||_2^2 + \lambda[(1-\alpha)\frac{1}{2}||\beta||_2^2 + \alpha ||\beta||_1]
+$$
+If $\alpha=1$, then the function will become
+$$
+\hat{\beta} = arg\min_{\beta}\frac{1}{2}||y-X\beta||_2^2 + \lambda||\beta||_1
+$$
+Denote $f(\beta)$ as follows
+$$
+\begin{aligned}
+& f(\beta)=\frac{1}{2n}\sum_{i=1}^n(y_i-\sum_{j=1}^p x_{ij}\beta_j)^2+\lambda \sum_{j=1}^p|\beta_j|\\
+& \frac{\partial f}{\partial \beta_l}=-\frac{1}{n}\sum_{i=1}^n x_{il}(y_i-\sum_{j=1}^p x_{ij}\beta_j)+\lambda \frac{\partial |\beta_l|}{\partial \beta_l}\\
+& Let\ \frac{\partial f}{\partial \beta_l}=0,\ we \ have\\
+& \frac{1}{n}\sum_{i=1}^n x_{il}(y_i-\sum_{j=1}^p x_{ij}\hat{\beta_j})=\lambda,\beta_l>0\\
+& \frac{1}{n}\sum_{i=1}^n x_{il}(y_i-\sum_{j=1}^p x_{ij}\hat{\beta_j})=-\lambda,\beta_l<0\\
+\end{aligned}
+$$
+Therefore, the KKT condition will become as follows:
+$$
+\frac{1}{n}\sum_{i=1}^n x_{il}(y_i-\sum_{j=1}^p x_{ij}\hat{\beta_j})=\lambda s_l,\\
+s_l=\left\{
+\begin{aligned}
+& 1, &\beta_l>0 \\
+& -1, &\beta_l<0 \\
+& [-1,1], &\beta_l=0
+\end{aligned}
+\right.
+$$
+
+
+
+#### 5.2 Implement active set screening function for lasso regression
+```{r}
+# Check current KKT conditions for regression vector.
+#
+# Inputs:
+#     X: A numeric data matrix.
+#     y: Response vector.
+#     b: Current value of the regression vector.
+#     lambda: The penalty term.
+#
+# Outputs:
+#     A logical vector indicating where the KKT conditions have
+#     been violated by the variables that are currently zero.
+casl_lenet_check_kkt <-function(X, y, b, lambda){
+  resids <- y - X %*% b
+  s <- apply(X, 2, function(xj) crossprod(xj, resids)) /
+             lambda / nrow(X)
+  s <- round(s, 2)
+  # Return a vector indicating where the KKT conditions have
+# been violated by the current variables.
+  val <- c()
+  for (i in 1:length(b)){
+    if(b[i] == 0){
+      val[i] <- (abs(s[i]) >= 1)
+    }
+    if(b[i] > 0){
+      val[i] <- (s[i] != 1)
+    }
+    if(b[i] < 0){
+      val[i] <- (s[i] != -1)
+    }
+  }
+  return(val)
+}
+```
+
+Simulate the Data
+```{r}
+n <- 100
+p <- 50
+X <- matrix(rnorm(n * p), ncol = p)
+beta <- c(rnorm(10), rep(0, p - 10))
+y <- X %*% beta + rnorm(n = n, sd = 0.1)
+
+library(glmnet)
+fit <- glmnet(X, y , lambda = 0.1, standardize = F, intercept = F)
+beta_glmnet <- as.vector(coefficients(fit))[-1]
+which(beta_glmnet != 0)
+```
+
+From the glmnet output above, we see that with $\lambda$=0.1, only the first ten coefficients do not equal to zero. Then we will check the KKT condition for the coefficients. It is supposed that all outputs should be FALSE, which is accordant with the output below.
+
+```{r}
+# active_set <- which(beta_glmnet != 0)
+# casl_lenet_check_kkt(X[, active_set], y, beta_glmnet[active_set], lambda=0.1)
+casl_lenet_check_kkt(X, y, beta_glmnet, lambda=0.1)
+```
+
+However, if we change three of the non-zero coefficients into zero, then it will violate the KKT condition. For example, I changed the first and third non-zero value into zero, and the 29th value from 0 to non-zeron. Then the output of the function "casl_lenet_check_kkt" will change. Some will generate TRUE and some will get FALSE. As updating one $\beta$ is correlated with other $\beta$s, so not only the first, third and 29th variable violate the KKT condition now, but also some other variables do. 
+
+```{r}
+beta_glmnet[c(1, 3)] = 0
+beta_glmnet[29] = rnorm(1)
+casl_lenet_check_kkt(X, y, beta_glmnet, lambda=0.1)
+```
+
+
