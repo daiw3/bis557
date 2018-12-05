@@ -1,0 +1,342 @@
+---
+title: "Homework-4"
+author: "Wei Dai"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Homework 4 for BIS557}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## 1. Excercise 5.2 Number 2
+
+An ill-conditioned Hessian is one that is almost singular. An ill-conditioned Hessian indicates that there are some linear combinations of model variables that are poorly determined by the data used in computing the fit. 
+
+Therefore, I simulate the data with 1000 samples and p = 3. Then the inverse of $X^T X$ exists. Next, I set true coefficients $\beta$ to be very large so that the probability $p$ will be either very close to 0 or 1. In this case, the matrix $diag(p(1-p))$ will perform poorly and the inverse will not be able to calculate, which will generate an error message.
+
+```{r}
+# simulate data
+n <- 1000
+p <- 4
+X <- cbind(1,matrix(rnorm(n*(p-1)),ncol = p-1))
+XX <- t(X) %*% X
+solve(XX)
+
+beta <- c(20000000,300000000,500000000, 0.000000001)
+mu <- 1/(1+exp(-X%*%beta))
+W <- as.numeric(mu*(1-mu))
+H <- crossprod(X, diag(W) %*% X)
+library(testthat)
+expect_error(solve(H))
+```
+
+
+## 2. Excercise 5.2 Number 4
+
+
+Assume the density function follow the exponetial family,
+$$
+f(y|\theta)=h(y)exp\{ \eta(\theta)T(y)-A(\theta)\}
+$$
+and $E(y_i)=\mu_i=g^{-1}(\eta_i)=g^{-1}(x_i^t\beta)$.
+
+For ridge regression, we have the following form of log-likelihood function:
+$$
+\begin{aligned}
+Log_{ridge}(Y,X, \beta,\lambda)= & Log(Y|\beta)-\lambda \|\beta\|^2\\
+&=\sum_{i=1}^nx_i^t\beta\ y_i-A(x_i^t\beta)+log(h(y_i))-\lambda\beta^T\beta
+\end{aligned}
+$$
+Then with first derivatives, we have
+$$
+\begin{aligned}
+\frac{\partial Log_{ridge}}{\partial \beta}=& X^T(y-Ey)-2\lambda\beta
+\end{aligned}
+$$
+Then with second derivatives, we have
+$$
+\begin{aligned}
+\frac{\partial^2 Log_{ridge}}{\partial \beta \partial \beta^T}=& X^Tdiag(Var(y))X-2\lambda I_p\\
+&=-X^TWX-2\lambda I_p,\\
+&where\ W=diag(Var(y))
+\end{aligned}
+$$
+
+Therefore, we can update $\beta$ by 
+$$
+\begin{aligned}
+\beta^{k+1}=& \beta^k-H^{-1}(l)(\beta^k)\nabla_{\beta}(l)(\beta^k)\\
+= &\beta^k+[{X^T W X+2\lambda}]^{-1}[X^T(y-Ey)-2\lambda\beta^k]\\
+= & \beta^k+[X^T W X+2\lambda]^{-1}[X^T(y-g^{-1}(X,\beta^k))-2\lambda\beta^k]\\
+= & V^{-1}V\beta^k-2\lambda V^{-1}\beta^k+V^{-1}X^TWW^{-1}[y-g^{-1}(X,\beta^k)]\\
+= & V^{-1}[X^TWX+2\lambda I_{p*p}-2\lambda I_{p*p}]\beta^k +V^{-1}X^TWW^{-1}[y-g^{-1}(X,\beta^k)]\\
+= & V^{-1}X^TWX\beta^k+V^{-1}X^TWW^{-1}[y-g^{-1}(X,\beta^k)]\\
+= & V^{-1}X^T W\{ X\beta^k+W^{-1}[y-g^{-1}(X,\beta^k)]\}\\
+= & V^{-1}X^TWz\\
+& where\ V=(X^T WX + 2\lambda I_{p*p})\\
+& z = X\beta^k+W^{-1}[y-g^{-1}(X,\beta^k)]
+\end{aligned}
+$$
+
+
+Algorithm:
+```{r}
+# Solve generalized ridge models with Newton-Ralphson method.
+#
+# Args:
+#     X: A numeric data matrix.
+#     y: Response vector.
+#     family: Instance of an R ‘family‘ object.
+#     maxit: Integer maximum number of iterations.
+#     tol: Numeric tolerance parameter.
+#
+# Returns:
+#     Regression vector beta of length ncol(X).
+casl_glm_irwls_ridge <-
+  function(X, y, family, maxit=25, tol=1e-10, lambda = 0){
+    beta <- rep(0,ncol(X))
+    for(j in seq_len(maxit))
+    {
+      b_old <- beta
+      eta <- X %*% b_old
+      mu <- family$linkinv(eta)
+      mu_p <- family$mu.eta(eta)
+      z <- eta + (y - mu) / mu_p
+      W <- as.numeric(mu_p^2 / family$variance(mu))
+      XtX <- crossprod(X, diag(W) %*% X) + 2* lambda*diag(1, ncol(X))
+      Xtz <- crossprod(X, W * z)
+      beta <- solve(XtX, Xtz)
+      if(sqrt(crossprod(beta - b_old)) < tol) break
+    }
+    beta 
+  }
+```
+
+We can check the accuracy of the algorithm by assuming $\lambda=0$ and compare the result with ordinal regression.
+
+Here we simulate the data from poisson regression.
+```{r}
+n <- 5000
+p <- 3
+beta <- c(-1, 0.2, 0.1)
+X <- cbind(1, matrix(rnorm(n * (p- 1)), ncol = p - 1))
+eta <- X %*% beta
+lambda <- exp(eta)
+y <- rpois(n, lambda = lambda)
+
+beta_glm <- coef(glm(y ~ X[,-1], family = "poisson"))
+beta_ridge <- casl_glm_irwls_ridge(X, y, family = poisson(link = "log"), lambda = 0)
+cbind(beta_glm, beta_ridge)
+```
+
+From the output above, the algorithm is right.
+
+
+## 3. Implement the multiply function and create a class of sparse.matrix.
+
+### 3.1 Create a S4 class for sparse.matrix.
+```{r}
+sparse.matrix <- setClass("sparse.matrix",
+                          slots=list(i="numeric", j="numeric",
+                                     x="numeric",dims = "numeric"))
+
+sparse.matrix<-function(i,j,x,dims=NULL){
+  if(is.null(dims)){
+    dims<-c(max(i),max(j))
+  }
+  a1<-new("sparse.matrix",i = i, j = j, x = x, dims = dims)
+  return(a1)
+}
+
+setMethod("+",
+          signature(e1= "sparse.matrix", e2 = "sparse.matrix"),
+          function(e1, e2){
+            if(sum(e1@dims != e2@dims) == 0){
+              a <- data.frame(i = e1@i, j = e1@j, x = e1@x)
+              b <- data.frame(i = e2@i, j = e2@j, x = e2@x)
+              c <- merge(a, b, by = c("i", "j"), all = TRUE, suffixes = c("1", "2"))
+              c$x1[is.na(c$x1)] <- 0
+              c$x2[is.na(c$x2)] <- 0
+              c$x <- c$x1 + c$x2
+              c <- c[, c("i", "j", "x")]
+              c <- c[order(c$j), ]
+              rownames(c) <- (1:nrow(c))
+              c <- sparse.matrix(i = c$i, j = c$j, x = c$x,
+                                 dims = c(e1@dims[1], e2@dims[2]))
+              return(c)
+            }else{
+              stop("Dimensions Error")
+            }
+          })
+
+# args(getGeneric("t"))
+setMethod("t", signature = "sparse.matrix",function(x){
+  a <- data.frame(i = x@i, j = x@j, x = x@x)
+  temp<-a$i
+  a$i<-a$j
+  a$j<-temp
+  a<-a[order(a$i),]
+  a <- sparse.matrix(i = a$i, j = a$j, x = a$x,
+                     dims = c(x@dims[2], x@dims[1]))
+  return(a)
+})
+
+
+setMethod("%*%",
+          signature(x= "sparse.matrix", y = "sparse.matrix"),
+          function(x, y){
+            
+            # check dim
+            if(x@dims[2] == y@dims[1]){
+              a <- data.frame(i = x@i, j = x@j, x = x@x)
+              b <- data.frame(i = y@i, j = y@j, x = y@x)
+              unique_a <- unique(a$i)
+              unique_b <- unique(b$j)
+              c_index <- expand.grid(unique_a, unique_b)
+              colnames(c_index) <- c("i", "j")
+              i <- c()
+              j <- c()
+              xv <- c()
+              for(ida in unique_a){
+                j_i <- a$j[which(a$i == ida)]
+                birow <- b$i %in% j_i
+                c_j <- b$j[birow]
+                a_x <- a$x[(a$i == ida) & (a$j == j_i)]
+                b_x <- b$x[(b$i == j_i) & (b$j ==  c_j)]
+                if(length(unique(c_j)) == length(c_j)){
+                  c_x <- a_x * b_x
+                  i <- c(i, rep(ida, length(c_x)))
+                  j <- c(j, c_j)
+                  xv <- c(xv, c_x)
+                }else{
+                  c_x <- sum(a_x * b_x)
+                  i <- c(i, rep(ida, length(c_x)))
+                  j <- c(j, unique(c_j))
+                  xv <- c(xv, c_x)
+                }
+              }
+              c <- data.frame(i = i, j = j, x = xv)
+              c <- c[order(c$j), ]
+              rownames(c) <- (1:nrow(c))
+              c <- sparse.matrix(i = c$i, j = c$j, x = c$x,
+                                 dims = c(x@dims[1], y@dims[2]))
+              return(c)
+            }else{
+              stop("Dimensions Error")
+            }
+          })
+```
+
+
+### 3.2 Another Solution: instead of creating a S4 object, we can create a S3 object
+```{r}
+sparse_add <- function(aa, bb){
+  # merge a and b by first two columns i and j, because the names of third colunm are the same x, so we use x and x2 to identify.
+  if(sum(attributes(aa)$dims != attributes(bb)$dims) == 0){
+    a <- attributes(aa)$data.frame
+    b <- attributes(bb)$data.frame
+    c <- merge(a, b, by = c("i", "j"), all = TRUE, suffixes = c("1", "2"))
+    c$x1[is.na(c$x1)] <- 0
+    c$x2[is.na(c$x2)] <- 0
+    c$x <- c$x1 + c$x2
+    c <- c[, c("i", "j", "x")]
+    c <- c[order(c$j), ]
+    rownames(c) <- (1:nrow(c))
+    attributes(c) <- list(data.frame = c, 
+                        dims = c(attributes(aa)$dims[1],attributes(aa)$dims[2]),
+                        class = "sparse.matrix")
+    return(c)
+  }else{
+    stop("Dimensions Error")
+  }
+}
+
+sparse_transpose<-function(aa){
+  a <- attributes(aa)$data.frame
+  temp<-a$i
+  a$i<-a$j
+  a$j<-temp
+  a<-a[order(a$i),]
+  attributes(a) <- list(data.frame = a, 
+                        dims = c(attributes(aa)$dims[2],attributes(aa)$dims[1]),
+                        class = "sparse.matrix")
+  return(a)
+}
+
+sparse_multiply <- function(aa, bb){
+  # check dim
+  if(attributes(aa)$dims[2] == attributes(bb)$dims[1]){
+     a <- attributes(aa)$data.frame
+     b <- attributes(bb)$data.frame
+    unique_a <- unique(a$i)
+    unique_b <- unique(b$j)
+    c_index <- expand.grid(unique_a, unique_b)
+    colnames(c_index) <- c("i", "j")
+    i <- c()
+    j <- c()
+    x <- c()
+    
+    for(ida in unique_a){
+    j_i <- a$j[which(a$i == ida)]
+    birow <- b$i %in% j_i
+    c_j <- b$j[birow]
+    a_x <- a$x[(a$i == ida) & (a$j == j_i)]
+    b_x <- b$x[(b$i == j_i) & (b$j ==  c_j)]
+    if(length(unique(c_j)) == length(c_j)){
+      c_x <- a_x * b_x
+      i <- c(i, rep(ida, length(c_x)))
+      j <- c(j, c_j)
+      x <- c(x, c_x)
+    }else{
+      c_x <- sum(a_x * b_x)
+      i <- c(i, rep(ida, length(c_x)))
+      j <- c(j, unique(c_j))
+      x <- c(x, c_x)
+    }
+  }
+  c <- data.frame(i = i, j = j, x = x)
+  c <- c[order(c$j), ]
+  rownames(c) <- (1:nrow(c))
+  attributes(c) <- list(data.frame = c, 
+                        dims = c(attributes(aa)$dims[1],attributes(bb)$dims[2]),
+                        class = "sparse.matrix")
+  return(c)
+  }else{
+    stop("Dimensions Error")
+  }
+}
+```
+
+
+```{r}
+sparse.matrix <- function(i, j, x, dims = NULL){
+  if(is.null(dims)){
+    dims = c(max(i), max(j))
+    mat <- data.frame(i = i, j = j, x = x)
+    attributes(mat) <- list(data.frame = mat, dims = dims)
+    class(mat) <- "sparse.matrix"
+  }else{
+    mat <- data.frame(i = i, j = j, x = x)
+    attributes(mat) <- list(data.frame = mat, dims = dims)
+    class(mat) <- "sparse.matrix"
+  }
+  return(mat)
+}
+```
+
+
+```{r}
+# Overload addition / use generic functions
+`+.sparse.matrix` = function(e1, e2){sparse_add(e1,e2)} 
+
+# Overload transpose
+t.sparse.matrix = function(x){sparse_transpose(x)}
+
+# Overload matrix multiplication
+`%*%.default` = .Primitive("%*%") # assign default as current definition
+`%*%` = function(x,...){ #make S3
+  UseMethod("%*%",x)
+}
+`%*%.sparse.matrix` = function(x,y) {sparse_multiply(x,y)} # define for sparse.matrix
+```

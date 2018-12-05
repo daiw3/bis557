@@ -2,4 +2,6 @@
 
 export(linear_model)
 export(ridge_reg)
+export(sparse.matrix)
+import(methods)
 import(stats)

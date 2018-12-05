@@ -11,6 +11,6 @@ Suggests:
     testthat,
     knitr,
     rmarkdown
-Imports: stats, glmnet
+Imports: stats, glmnet, methods
 VignetteBuilder: knitr
 Encoding: UTF-8
