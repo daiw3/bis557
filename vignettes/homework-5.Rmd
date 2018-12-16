@@ -9,7 +9,6 @@ vignette: >
 ---
 ```{r}
 library(tidyverse)
-library(keras)
 library(glmnet)
 library(tidyr)
 library(ggplot2)
@@ -20,6 +19,8 @@ library(tensorflow)
 ## Problem 1: MNIST
 Import dataset.
 ```{r}
+install_keras()
+library(keras)
 mnist <- dataset_mnist()
 
 x_train <- mnist$train$x
