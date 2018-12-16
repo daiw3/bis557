@@ -11,6 +11,7 @@ Suggests:
     testthat,
     knitr,
     rmarkdown
-Imports: stats, glmnet, methods
+Imports: stats, glmnet, methods, tidyverse, keras, tidyr, ggplot2, readr, tensorflow
 VignetteBuilder: knitr
 Encoding: UTF-8
+Depends: R(>= 2.10.0)
