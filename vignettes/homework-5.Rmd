@@ -19,6 +19,7 @@ library(tensorflow)
 ## Problem 1: MNIST
 Import dataset.
 ```{r}
+library(keras)
 install_keras()
 library(keras)
 mnist <- dataset_mnist()
@@ -407,14 +408,14 @@ casl_util_ReLU_p <- function(v){
 
 casl_util_mse_p function
 ```{r}
-# Derivative of the mean squared error (MSE) function.
+# Derivative of the mean absolute deviance (MAD) function.
 #
 # Args:
 #     y: A numeric vector of responses.
 #     a: A numeric vector of predicted responses.
 #
 # Returns:
-#     Returned current derivative the MSE function.
+#     Returned current derivative the MAD function.
 casl_util_mse_p <- function(y, a){
   dev <- c()
   for(i in seq_along(a)){
